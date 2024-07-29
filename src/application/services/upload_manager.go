@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"io"
-	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -34,13 +33,12 @@ func (vu *VideoUpload) UploadObject(objectPath string, client *storage.Client, c
 	defer f.Close()
 
 	wc := client.Bucket(vu.OutputBucket).Object(path[1]).NewWriter(ctx)
-	wc.ACL = []storage.ACLRule{{Entity: storage.AllUsers, Role: storage.RoleReader}}
 
-	if _, err := io.Copy(wc, f); err != nil {
+	if _, err = io.Copy(wc, f); err != nil {
 		return err
 	}
 
-	if err := wc.Close(); err != nil {
+	if err = wc.Close(); err != nil {
 		return err
 	}
 
@@ -48,7 +46,7 @@ func (vu *VideoUpload) UploadObject(objectPath string, client *storage.Client, c
 }
 
 func (vu *VideoUpload) loadPaths() error {
-	err := filepath.Walk(vu.VideoPath, func(path string, info fs.FileInfo, err error) error {
+	err := filepath.Walk(vu.VideoPath, func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
 			vu.Paths = append(vu.Paths, path)
 		}
@@ -58,7 +56,6 @@ func (vu *VideoUpload) loadPaths() error {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -84,13 +81,19 @@ func (vu *VideoUpload) ProcessUpload(concurrency int, doneUpload chan string) er
 		for x := 0; x < len(vu.Paths); x++ {
 			in <- x
 		}
-		close(in)
 	}()
 
+	countDoneWorker := 0
 	for r := range returnChannel {
+		countDoneWorker++
+
 		if r != "" {
 			doneUpload <- r
 			break
+		}
+
+		if countDoneWorker == len(vu.Paths) {
+			close(in)
 		}
 	}
 
@@ -119,6 +122,5 @@ func getUploadClient() (*storage.Client, context.Context, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-
 	return client, ctx, nil
 }
