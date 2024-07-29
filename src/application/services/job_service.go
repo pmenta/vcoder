@@ -121,3 +121,12 @@ func (j *JobService) failJob(err error) error {
 
 	return nil
 }
+
+func (j *JobService) InsertJob() error {
+	_, err := j.JobRepository.Insert(j.Job)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
